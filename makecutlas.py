@@ -1,4 +1,4 @@
-import brainglobe_atlasapi, struct, sys, zlib
+import brainglobe_atlasapi, struct, sys, zlib, random
 
 print("Loading atlas")
 atlas = brainglobe_atlasapi.bg_atlas.BrainGlobeAtlas(sys.argv[1])
@@ -9,17 +9,59 @@ if xdim * ydim * zdim > 0x7FFFFFF0:
     print("Atlas can't be packed into cutlas.")
     sys.exit()
 
+random.seed(0)
 print("Building annotations")
 palette = bytearray()
 remap = {0:0}
+# colors = []
+# for structure in atlas.structures_list:
+#     id = structure["id"]
+#     if id != 0:
+#         basecolor = structure["rgb_triplet"]
+#         color = basecolor
+#         similar = True
+#         attempt = 0
+#         print(structure["name"], end = "\r")
+#         while similar:
+#             similar = False
+#             for existing in colors:
+#                 if sum(abs(a-b) for (a,b) in zip(color,existing)) < 10:
+#                     attempt += 1
+#                     color = [min(255,max(0,component+random.randint(-attempt,attempt))) for component in basecolor]
+#                     print("Recoloring", structure["name"], attempt, basecolor, color, end = "\r")
+#                     similar = True
+#                     break
+#         print()
+#         colors.append(color)
+blocked = set()
 for structure in atlas.structures_list:
     id = structure["id"]
     if id != 0:
+        print(structure["name"], end = "\r")
+        basecolor = tuple(structure["rgb_triplet"])
+        color = basecolor
+        attempt = 0
+        while color in blocked:
+            attempt += 1
+            color = tuple([min(255,max(0,component+random.randint(-attempt,attempt))) for component in basecolor])
+            print("Recoloring", structure["name"], f"attempt #{attempt}", basecolor, color, end = "\r")
+        print()
+        for a in range(0,10):
+            for b in range(0,10-a):
+                for c in range(0,10-a-b):
+                    blocked.add((color[0]-a,color[1]-b,color[2]-c))
+                    blocked.add((color[0]-a,color[1]-b,color[2]+c))
+                    blocked.add((color[0]-a,color[1]+b,color[2]-c))
+                    blocked.add((color[0]-a,color[1]+b,color[2]+c))
+                    blocked.add((color[0]+a,color[1]-b,color[2]-c))
+                    blocked.add((color[0]+a,color[1]-b,color[2]+c))
+                    blocked.add((color[0]+a,color[1]+b,color[2]-c))
+                    blocked.add((color[0]+a,color[1]+b,color[2]+c))
         remap[id] = len(remap)
         name = structure["name"]
         name = name.encode("utf-8")
         name = struct.pack(f">H{len(name)}s", len(name), name)
-        palette.extend(struct.pack("3B", *structure["rgb_triplet"]))
+        palette.extend(struct.pack("3B", *color))
         palette.extend(name)
 palette = struct.pack(f">H{len(palette)}s", len(remap)-1, palette)
 palette = zlib.compress(palette, level = 9)
