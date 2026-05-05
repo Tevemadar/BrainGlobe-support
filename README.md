@@ -15,12 +15,25 @@ Launching the custom atlas with QuickNII:
  - either as command-line parameter (e.g. `QuickNII.exe allen_mouse_25um.cutlas`)
  - or edit `pack.txt` (next to QuickNII.exe) to contain the name of the new file (`allen_mouse_25um`). Without any trailing characters (not even a line-break).
 
-Tested with a couple atlases only, allen_mouse_25um, whs_sd_rat_39um, kim_dev_mouse_e18-5_lsfm_20um.
+Optional command line parameters:
+
+ - `nocompress` - apply 0-level ("STORE") compression. This parameter exists to save time when experimenting with new atlases, conversion is significantly faster this way). After an atlas turns out to be usable with QuickNII, it's advisable to re-run conversion without this parameter
+ - `skipextras` - do not pack additional references. Try using this parameter if additional reference volumes exist at all and QuickNII reports running out of memory at startup.
+
+Non-trivial features:
+
+ - label colors are made distinct, the enforced distance is `|r1-r2| + |g1-g2| + |b1-b2| >= 10`
+ - missing labels are added and reported
+ - packs additional references where available (also see `skipextras` parameter above).
+
+Tested with a couple atlases only, `allen_mouse_25um`, `whs_sd_rat_39um`, `kim_dev_mouse_e18-5_lsfm_20um`.  
+`unam_axolotl_40um` was used to develop the color distinction feature.  
+`demba_allen_seg_dev_mouse_p4_25um` was used for developing and testing support for additional references. Coincidentally this was the atlas requiring introduction of support for unspecified labels too.
 
 Known limitations:
 
  - QuickNII needs isotropic (or near-isotropic) resolution (it will load non-isotropic atlases, but they won't really work)
- - atlases are unconditionally converted into a 4-volume format (2-byte template and 2-byte segmentation), that runs out of memory sooner than the theoretical limit (bit less than 2 gigavoxels)
+ - atlases are unconditionally converted into a 4-volume format (2-byte template and 2-byte segmentation), that runs out of memory sooner than the theoretical limit (bit less than 2 gigavoxels). Additional references mean one additional volume pair per reference
  - license information is not emitted yet
  - single template - single segmentation.
 
@@ -37,6 +50,8 @@ Expected outputs for this example are:
  - `allen_mouse_25um.nii.gz` - a standard NIfTI volume containing the segmentation of the given atlas
  - `allen_mouse_25um.txt` - ITK label file for the segmentation
  - `allen_mouse_25um.zip` - atlas package that can be uncompressed into VisuAlign (it contains an `allen_mouse_25um.cutlas` folder that then contains the previous two files renamed as `labels.nii.gz` and `labels.txt` respectively).
+
+This converter also completes the label file with any unspecified label identifiers it encounters. Colors are not made distinct though, as VisuAlign has a fully functional "outline" view.
 
 Known quirks:
 

@@ -40,6 +40,10 @@ with open(atlas.atlas_name + ".txt", "w") as f:
             rgb = structure["rgb_triplet"]
             f.write(f"{id:5} {rgb[0]:5} {rgb[1]:4} {rgb[2]:4}        1  1  0    \"{structure["name"]}\"\n")
 
+    # support for incomplete structure lists
+    for unknown in set(numpy.unique(atlas.annotation).tolist()) - {structure["id"] for structure in atlas.structures_list} - {0}:
+        f.write(f"{unknown:5}   128  128  128        1  1  0    \"Unknown label {unknown}\"\n")
+
 print("Creating package")
 with zipfile.ZipFile(atlas.atlas_name + ".zip", "w") as zf:
     zf.write(atlas.atlas_name + ".nii.gz", arcname = atlas.atlas_name + ".cutlas/labels.nii.gz")
