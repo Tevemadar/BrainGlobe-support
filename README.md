@@ -5,7 +5,7 @@ Python converters for using atlases from https://brainglobe.info with NeSys util
 ## QuickNII cutlas creator
 
 Install BrainGlobe Atlas API if needed: 
-`pip install brainglobe-atlasapi`
+`pip install --upgrade brainglobe-atlasapi`
 
 Supply atlas identifier as command-line parameter: 
 `python makecutlas.py allen_mouse_25um`
@@ -33,14 +33,13 @@ Tested with a couple atlases only, `allen_mouse_25um`, `whs_sd_rat_39um`, `kim_d
 Known limitations:
 
  - QuickNII needs isotropic (or near-isotropic) resolution (it will load non-isotropic atlases, but they won't really work)
- - atlases are unconditionally converted into a 4-volume format (2-byte template and 2-byte segmentation), that runs out of memory sooner than the theoretical limit (bit less than 2 gigavoxels). Additional references mean one additional volume pair per reference
- - license information is not emitted yet
- - single template - single segmentation.
+ - template volumes are unconditionally converted into a 16-bit format, that may run out of memory sooner than the theoretical limit (bit less than 2 gigavoxels)
+ - license information is not emitted yet.
 
 ## VisuAlign package creator
 
 Install BrainGlobe Atlas API if needed: 
-`pip install brainglobe-atlasapi`
+`pip install --upgrade brainglobe-atlasapi nibabel`
 
 Supply atlas identifier as command-line parameter: 
 `python makenifti.py allen_mouse_25um`
