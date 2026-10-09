@@ -94,11 +94,14 @@ for z in reversed(range(zdim)):
             ahi.append(v >> 8)
 
 print("Compressing annotation image")
-cahi = zlib.compress(ahi, level = compression)
+byteannotation = len(remap) < 256
+if not byteannotation:
+    cahi = zlib.compress(ahi, level = compression)
 calo = zlib.compress(alo, level = compression)
 
 print("Building template image")
 template = atlas.reference
+#template = next(v for v in atlas.additional_references.values())
 minval = template.min()
 maxval = template.max()
 print(f"Range: {minval} - {maxval}")
@@ -173,7 +176,7 @@ with open(filename, "wb") as f:
     name = "Segmentation"
     name = name.encode("utf-8")
     name = struct.pack(f">H{len(name)}s", len(name), name)
-    head = struct.pack(f">B{len(name)}sB", 4, name, 2)
+    head = struct.pack(f">B{len(name)}sB", 3 if byteannotation else 4, name, 2)
     f.write(head)
     f.write(palette)
 
@@ -182,20 +185,21 @@ with open(filename, "wb") as f:
         name = extra["name"]
         name = name.encode("utf-8")
         name = struct.pack(f">H{len(name)}s", len(name), name)
-        head = struct.pack(f">B{len(name)}sBdd", 2, name, 4 + 2 * i, extra["min"], extra["max"])
+        head = struct.pack(f">B{len(name)}sBdd", 2, name, 4 + 2 * i - (1 if byteannotation else 0), extra["min"], extra["max"])
         f.write(head)
 
     f.write(struct.pack("B", 0))
 
-    f.write(struct.pack("B", 4 + 2 * len(extras)))
+    f.write(struct.pack("B", 4 + 2 * len(extras) - (1 if byteannotation else 0)))
 
     f.write(struct.pack(">I", len(cthi)))
     f.write(cthi)
     f.write(struct.pack(">I", len(ctlo)))
     f.write(ctlo)
 
-    f.write(struct.pack(">I", len(cahi)))
-    f.write(cahi)
+    if not byteannotation:
+        f.write(struct.pack(">I", len(cahi)))
+        f.write(cahi)
     f.write(struct.pack(">I", len(calo)))
     f.write(calo)
 
