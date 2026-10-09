@@ -4,7 +4,7 @@ Python converters for using atlases from https://brainglobe.info with NeSys util
 
 ## QuickNII cutlas creator
 
-Install BrainGlobe Atlas API if needed: 
+Install BrainGlobe Atlas API: 
 `pip install --upgrade brainglobe-atlasapi`
 
 Supply atlas identifier as command-line parameter: 
@@ -38,7 +38,7 @@ Known limitations:
 
 ## VisuAlign package creator
 
-Install BrainGlobe Atlas API if needed: 
+Install BrainGlobe Atlas API and NiBabel: 
 `pip install --upgrade brainglobe-atlasapi nibabel`
 
 Supply atlas identifier as command-line parameter: 
