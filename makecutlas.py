@@ -1,4 +1,4 @@
-import brainglobe_atlasapi, numpy, struct, sys, zlib, random
+import brainglobe_atlasapi, numpy, struct, sys, zlib, random, re
 
 compression = 0 if "nocompress" in sys.argv else 9
 
@@ -100,8 +100,7 @@ if not byteannotation:
 calo = zlib.compress(alo, level = compression)
 
 print("Building template image")
-template = atlas.reference
-#template = next(v for v in atlas.additional_references.values())
+template = atlas.template
 minval = template.min()
 maxval = template.max()
 print(f"Range: {minval} - {maxval}")
@@ -156,7 +155,17 @@ with open(filename, "wb") as f:
     name = struct.pack(f">H{len(name)}s", len(name), name)
     f.write(name)
 
-    license = "<b>License placeholder</b>"
+    citation = re.sub(r"(https://\S*)", r'<a href="\g<1>">\g<1></a>', atlas.metadata["citation"])
+
+    # <br><b>Name:</b> {atlas.metadata["name"]} (v{atlas.metadata["version"]})
+    license = f'''<b>{atlas.atlas_name.replace("_", " ").capitalize()} (v{atlas.metadata["version"]})</b>
+    <br>
+    <br><b>Species:</b> {atlas.metadata["species"]}
+    <br><b>Link:</b> <a href="{atlas.metadata["atlas_link"]}">{atlas.metadata["atlas_link"]}</a>
+    <br><b>Citation:</b> {citation}
+    <br>
+    <br>Generated from <a href="https://brainglobe.info/">BrainGlobe</a> package.
+    '''
     license = license.encode("utf-8")
     license = struct.pack(f">H{len(license)}s", len(license), license)
     license = zlib.compress(license, level = 9, wbits = -15)

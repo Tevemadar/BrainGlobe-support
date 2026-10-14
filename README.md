@@ -10,10 +10,11 @@ Install BrainGlobe Atlas API:
 Supply atlas identifier as command-line parameter: 
 `python makecutlas.py allen_mouse_25um`
 
-Expected output is `allen_mouse_25um.cutlas` for the example. It then can be copied into any QuickNII release. 
-Launching the custom atlas with QuickNII:
+Expected output is `allen_mouse_25um.cutlas` for the example. It then can be copied into any QuickNII release.
+
+Launching the atlas with QuickNII:
  - either as command-line parameter (e.g. `QuickNII.exe allen_mouse_25um.cutlas`)
- - or edit `pack.txt` (next to QuickNII.exe) to contain the name of the new file (`allen_mouse_25um`). Without any trailing characters (not even a line-break).
+ - or edit `pack.txt` (next to QuickNII.exe) to contain the name of the new file (`allen_mouse_25um.cutlas`). Without any trailing characters (not even a line-break).
 
 Optional command line parameters:
 
