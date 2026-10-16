@@ -106,15 +106,12 @@ maxval = template.max()
 print(f"Range: {minval} - {maxval}")
 template = (template - minval) * 65535.0 / (maxval - minval)
 
-thi = bytearray()
-tlo = bytearray()
-for z in reversed(range(zdim)):
-    print(z, end = " \r")
-    for y in reversed(range(ydim)):
-        for x in reversed(range(xdim)):
-            v = int(template[y, z, x])
-            tlo.append(v & 255)
-            thi.append(v >> 8)
+template = template.astype(numpy.uint16)
+template = numpy.flip(template, (0,1,2))
+template = numpy.swapaxes(template, 0, 1)
+
+thi = (template >> 8).astype(numpy.uint8).tobytes()
+tlo = template.astype(numpy.uint8).tobytes()
 
 print("Compressing template image")
 cthi = zlib.compress(thi, level = compression)
@@ -130,15 +127,12 @@ if "skipextras" not in sys.argv:
         print(f"Range: {eminval} - {emaxval}")
         etemplate = (etemplate - eminval) * 65535.0 / (emaxval - eminval)
 
-        ehi = bytearray()
-        elo = bytearray()
-        for z in reversed(range(zdim)):
-            print(z, end = " \r")
-            for y in reversed(range(ydim)):
-                for x in reversed(range(xdim)):
-                    v = int(etemplate[y, z, x])
-                    elo.append(v & 255)
-                    ehi.append(v >> 8)
+        etemplate = etemplate.astype(numpy.uint16)
+        etemplate = numpy.flip(etemplate, (0,1,2))
+        etemplate = numpy.swapaxes(etemplate, 0, 1)
+
+        ehi = (etemplate >> 8).astype(numpy.uint8).tobytes()
+        elo = etemplate.astype(numpy.uint8).tobytes()
 
         print(f"Compressing {extra}")
         cehi = zlib.compress(ehi, level = compression)
