@@ -1,4 +1,10 @@
-import brainglobe_atlasapi, numpy, struct, sys, zlib, random, re
+print("Initializing")
+import brainglobe_atlasapi, numpy, struct, sys, zlib, random, re, time
+
+start = time.time()
+def ts(msg):
+    if "debug" in sys.argv:
+        print(str(time.time() - start), __name__, msg)
 
 compression = 0 if "nocompress" in sys.argv else 9
 
@@ -6,7 +12,7 @@ print("Loading atlas")
 atlas = brainglobe_atlasapi.bg_atlas.BrainGlobeAtlas(sys.argv[1])
 
 (ydim, zdim, xdim) = atlas.shape
-print(f"Shape: {atlas.shape}")
+print(f"Dimensions: {atlas.shape}")
 
 if xdim * ydim * zdim > 0x7FFFFFF0:
     print("Atlas can't be packed into cutlas.")
@@ -20,39 +26,20 @@ random.seed(0)
 print("Building annotations")
 palette = bytearray()
 remap = {0:0}
-# colors = []
-# for structure in atlas.structures_list:
-#     id = structure["id"]
-#     if id != 0:
-#         basecolor = structure["rgb_triplet"]
-#         color = basecolor
-#         similar = True
-#         attempt = 0
-#         print(structure["name"], end = "\r")
-#         while similar:
-#             similar = False
-#             for existing in colors:
-#                 if sum(abs(a-b) for (a,b) in zip(color,existing)) < 10:
-#                     attempt += 1
-#                     color = [min(255,max(0,component+random.randint(-attempt,attempt))) for component in basecolor]
-#                     print("Recoloring", structure["name"], attempt, basecolor, color, end = "\r")
-#                     similar = True
-#                     break
-#         print()
-#         colors.append(color)
 blocked = set()
 for structure in atlas.structures_list + unknownlabels:
     id = structure["id"]
     if id != 0:
-        print(structure["name"], end = "\r")
+        print(" ", structure["name"], end = "\r")
         basecolor = tuple(structure["rgb_triplet"])
         color = basecolor
         attempt = 0
         while color in blocked:
+            print("-\\|/"[attempt & 3], end = "\r")
             attempt += 1
             color = tuple([min(255,max(0,component+random.randint(-attempt,attempt))) for component in basecolor])
-            print("Recoloring", structure["name"], f"attempt #{attempt}", basecolor, color, end = "\r")
-        print()
+            # print("Recoloring", structure["name"], f"attempt #{attempt}", basecolor, color, end = "\r")
+        # print()
         for a in range(0,10):
             for b in range(0,10-a):
                 for c in range(0,10-a-b):
@@ -70,6 +57,9 @@ for structure in atlas.structures_list + unknownlabels:
         name = struct.pack(f">H{len(name)}s", len(name), name)
         palette.extend(struct.pack("3B", *color))
         palette.extend(name)
+        print(" " * (len(structure["name"]) + 2), end = "\r")
+
+ts("palette")
 
 if len(unknownids):
     print()
@@ -81,23 +71,34 @@ palette = struct.pack(f">H{len(palette)}s", len(remap)-1, palette)
 palette = zlib.compress(palette, level = 9)
 palette = struct.pack(f">I{len(palette)}s", len(palette), palette)
 
-print("Building annotation image")
+ts("Compressing annotation image")
 annotation = atlas.annotation
-ahi = bytearray()
-alo = bytearray()
-for z in reversed(range(zdim)):
-    print(z, end = " \r")
-    for y in reversed(range(ydim)):
-        for x in reversed(range(xdim)):
-            v = remap[int(annotation[y, z, x])]
-            alo.append(v & 255)
-            ahi.append(v >> 8)
-
-print("Compressing annotation image")
+annotation = numpy.flip(atlas.annotation, (0, 1, 2))
+annotation = numpy.swapaxes(annotation, 0, 1)
 byteannotation = len(remap) < 256
-if not byteannotation:
-    cahi = zlib.compress(ahi, level = compression)
-calo = zlib.compress(alo, level = compression)
+cahi = bytearray()
+calo = bytearray()
+comphi = zlib.compressobj(level = compression)
+complo = zlib.compressobj(level = compression)
+for z in range(zdim):
+    prg = int(50 * z / zdim)
+    print("[", "*" * prg, " " * (50 - prg), "] ", z, "/", zdim, sep = "", end = " \r")
+    for line in annotation[z]:
+        lihi = bytearray()
+        lilo = bytearray()
+        for v in line:
+            s = remap[v]
+            lihi.append(s >> 8)
+            lilo.append(s & 255)
+        cahi += comphi.compress(lihi)
+        calo += complo.compress(lilo)
+cahi += comphi.flush()
+calo += complo.flush()
+print("[", "*" * 50, "] ", zdim, "/", zdim, sep = "")
+ts("Done.")
+
+ts(str(len(cahi)))
+ts(str(len(calo)))
 
 print("Building template image")
 template = atlas.template
@@ -113,9 +114,10 @@ template = numpy.swapaxes(template, 0, 1)
 thi = (template >> 8).astype(numpy.uint8).tobytes()
 tlo = template.astype(numpy.uint8).tobytes()
 
-print("Compressing template image")
+ts("Compressing template image")
 cthi = zlib.compress(thi, level = compression)
 ctlo = zlib.compress(tlo, level = compression)
+ts("Done.")
 
 extras = []
 if "skipextras" not in sys.argv:
@@ -134,10 +136,11 @@ if "skipextras" not in sys.argv:
         ehi = (etemplate >> 8).astype(numpy.uint8).tobytes()
         elo = etemplate.astype(numpy.uint8).tobytes()
 
-        print(f"Compressing {extra}")
+        ts(f"Compressing {extra}")
         cehi = zlib.compress(ehi, level = compression)
         celo = zlib.compress(elo, level = compression)
         extras.append({"name": extra, "min": eminval, "max": emaxval, "hi": cehi, "lo": celo})
+        ts("Done.")
 
 filename = atlas.atlas_name + ".cutlas"
 print("Writing " + filename)
@@ -151,7 +154,6 @@ with open(filename, "wb") as f:
 
     citation = re.sub(r"(https://\S*)", r'<a href="\g<1>">\g<1></a>', atlas.metadata["citation"])
 
-    # <br><b>Name:</b> {atlas.metadata["name"]} (v{atlas.metadata["version"]})
     license = f'''<b>{atlas.atlas_name.replace("_", " ").capitalize()} (v{atlas.metadata["version"]})</b>
     <br>
     <br><b>Species:</b> {atlas.metadata["species"]}

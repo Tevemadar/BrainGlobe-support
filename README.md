@@ -27,9 +27,10 @@ Non-trivial features:
  - missing labels are added and reported
  - packs additional references where available (also see `skipextras` parameter above).
 
-Tested with a couple atlases only, `allen_mouse_25um`, `whs_sd_rat_39um`, `kim_dev_mouse_e18-5_lsfm_20um`.  
+Tested with a couple atlases only, `allen_mouse_25um`, `whs_sd_rat_39um`, `kim_dev_mouse_e18-5_lsfm_20um`, `azba_zfish_4um`, `mpin_zfish_1um` (this atlas has an incomplete distribution in 2026 October).  
 `unam_axolotl_40um` was used to develop the color distinction feature.  
-`demba_allen_seg_dev_mouse_p4_25um` was used for developing and testing support for additional references. Coincidentally this was the atlas requiring introduction of support for unspecified labels too.
+`demba_allen_seg_dev_mouse_p4_25um` was used for developing and testing support for additional references. Coincidentally this was the atlas requiring introduction of support for unspecified labels too.  
+`azba_zfish_4um` was used for recognizing and supporting single-byte segmentations.
 
 Known limitations:
 
