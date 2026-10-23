@@ -1,15 +1,19 @@
 print("Initializing")
-import brainglobe_atlasapi, numpy, struct, sys, zlib, random, re, time
 
+import time
 start = time.time()
 def ts(msg):
     if "debug" in sys.argv:
         print(str(time.time() - start), __name__, msg)
 
+import brainglobe_atlasapi, numpy, struct, sys, zlib, random, re
+ts("Imports.")
+
 compression = 0 if "nocompress" in sys.argv else 9
 
 print("Loading atlas")
 atlas = brainglobe_atlasapi.bg_atlas.BrainGlobeAtlas(sys.argv[1])
+ts("Atlas object.")
 
 (ydim, zdim, xdim) = atlas.shape
 print(f"Dimensions: {atlas.shape}")
@@ -18,12 +22,13 @@ if xdim * ydim * zdim > 0x7FFFFFF0:
     print("Atlas can't be packed into cutlas.")
     sys.exit()
 
+print("Building annotations")
+
 # support for incomplete structure lists
 unknownids = set(numpy.unique(atlas.annotation).tolist()) - {structure["id"] for structure in atlas.structures_list} - {0}
 unknownlabels = [{"id": id, "name": f"Unknown label {id}", "rgb_triplet": [128, 128, 128]} for id in unknownids]
 
 random.seed(0)
-print("Building annotations")
 palette = bytearray()
 remap = {0:0}
 blocked = set()
@@ -59,8 +64,6 @@ for structure in atlas.structures_list + unknownlabels:
         palette.extend(name)
         print(" " * (len(structure["name"]) + 2), end = "\r")
 
-ts("palette")
-
 if len(unknownids):
     print()
     print(f">>>> WARNING <<<<\nAtlas contains unspecified identifiers:\n{" ".join(str(id) for id in unknownids)}")
@@ -70,8 +73,8 @@ if len(unknownids):
 palette = struct.pack(f">H{len(palette)}s", len(remap)-1, palette)
 palette = zlib.compress(palette, level = 9)
 palette = struct.pack(f">I{len(palette)}s", len(palette), palette)
+ts("Palette.")
 
-ts("Compressing annotation image")
 annotation = atlas.annotation
 annotation = numpy.flip(atlas.annotation, (0, 1, 2))
 annotation = numpy.swapaxes(annotation, 0, 1)
@@ -95,7 +98,7 @@ for z in range(zdim):
 cahi += comphi.flush()
 calo += complo.flush()
 print("[", "*" * 50, "] ", zdim, "/", zdim, sep = "")
-ts("Done.")
+ts("Annotation.")
 
 ts(str(len(cahi)))
 ts(str(len(calo)))
@@ -218,3 +221,5 @@ if len(extras) > 0:
     print(f"\n>>>> INFO <<<<\n{len(extras)} additional templates were processed: {", ".join(list(atlas.additional_references.keys()))}")
     print("If this cutlas file makes QuickNII running out of memory, please add the command line parameter skipextras, like")
     print(f"{" ".join(sys.argv)} skipextras")
+
+print("All done (", int(time.time() - start), "s)", sep = "")
