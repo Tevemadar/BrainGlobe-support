@@ -24,126 +24,121 @@ if xdim * ydim * zdim > 0x7FFFFFF0:
 
 print("Building annotations")
 
-# support for incomplete structure lists
-unknownids = set(numpy.unique(atlas.annotation).tolist()) - {structure["id"] for structure in atlas.structures_list} - {0}
-unknownlabels = [{"id": id, "name": f"Unknown label {id}", "rgb_triplet": [128, 128, 128]} for id in unknownids]
+def processannotations():
+    # support for incomplete structure lists
+    unknownids = set(numpy.unique(atlas.annotation).tolist()) - {structure["id"] for structure in atlas.structures_list} - {0}
+    unknownlabels = [{"id": id, "name": f"Unknown label {id}", "rgb_triplet": [128, 128, 128]} for id in unknownids]
 
-random.seed(0)
-palette = bytearray()
-remap = {0:0}
-blocked = set()
-for structure in atlas.structures_list + unknownlabels:
-    id = structure["id"]
-    if id != 0:
-        print(" ", structure["name"], end = "\r")
-        basecolor = tuple(structure["rgb_triplet"])
-        color = basecolor
-        attempt = 0
-        while color in blocked:
-            print("-\\|/"[attempt & 3], end = "\r")
-            attempt += 1
-            color = tuple([min(255,max(0,component+random.randint(-attempt,attempt))) for component in basecolor])
-            # print("Recoloring", structure["name"], f"attempt #{attempt}", basecolor, color, end = "\r")
-        # print()
-        for a in range(0,10):
-            for b in range(0,10-a):
-                for c in range(0,10-a-b):
-                    blocked.add((color[0]-a,color[1]-b,color[2]-c))
-                    blocked.add((color[0]-a,color[1]-b,color[2]+c))
-                    blocked.add((color[0]-a,color[1]+b,color[2]-c))
-                    blocked.add((color[0]-a,color[1]+b,color[2]+c))
-                    blocked.add((color[0]+a,color[1]-b,color[2]-c))
-                    blocked.add((color[0]+a,color[1]-b,color[2]+c))
-                    blocked.add((color[0]+a,color[1]+b,color[2]-c))
-                    blocked.add((color[0]+a,color[1]+b,color[2]+c))
-        remap[id] = len(remap)
-        name = structure["name"]
-        name = name.encode("utf-8")
-        name = struct.pack(f">H{len(name)}s", len(name), name)
-        palette.extend(struct.pack("3B", *color))
-        palette.extend(name)
-        print(" " * (len(structure["name"]) + 2), end = "\r")
+    random.seed(0)
+    palette = bytearray()
+    remap = {0:0}
+    blocked = set()
+    for structure in atlas.structures_list + unknownlabels:
+        id = structure["id"]
+        if id != 0:
+            print(" ", structure["name"], end = "\r")
+            basecolor = tuple(structure["rgb_triplet"])
+            color = basecolor
+            attempt = 0
+            while color in blocked:
+                print("-\\|/"[attempt & 3], end = "\r")
+                attempt += 1
+                color = tuple([min(255,max(0,component+random.randint(-attempt,attempt))) for component in basecolor])
+                # print("Recoloring", structure["name"], f"attempt #{attempt}", basecolor, color, end = "\r")
+            # print()
+            for a in range(0,10):
+                for b in range(0,10-a):
+                    for c in range(0,10-a-b):
+                        blocked.add((color[0]-a,color[1]-b,color[2]-c))
+                        blocked.add((color[0]-a,color[1]-b,color[2]+c))
+                        blocked.add((color[0]-a,color[1]+b,color[2]-c))
+                        blocked.add((color[0]-a,color[1]+b,color[2]+c))
+                        blocked.add((color[0]+a,color[1]-b,color[2]-c))
+                        blocked.add((color[0]+a,color[1]-b,color[2]+c))
+                        blocked.add((color[0]+a,color[1]+b,color[2]-c))
+                        blocked.add((color[0]+a,color[1]+b,color[2]+c))
+            remap[id] = len(remap)
+            name = structure["name"]
+            name = name.encode("utf-8")
+            name = struct.pack(f">H{len(name)}s", len(name), name)
+            palette.extend(struct.pack("3B", *color))
+            palette.extend(name)
+            print(" " * (len(structure["name"]) + 2), end = "\r")
 
-if len(unknownids):
-    print()
-    print(f">>>> WARNING <<<<\nAtlas contains unspecified identifiers:\n{" ".join(str(id) for id in unknownids)}")
-    print("These will appear in grayish shades and with name \"Unkown label <numerical id>\"")
-    print()
+    if len(unknownids):
+        print()
+        print(f">>>> WARNING <<<<\nAtlas contains unspecified identifiers:\n{" ".join(str(id) for id in unknownids)}")
+        print("These will appear in grayish shades and with name \"Unkown label <numerical id>\"")
+        print()
 
-palette = struct.pack(f">H{len(palette)}s", len(remap)-1, palette)
-palette = zlib.compress(palette, level = 9)
-palette = struct.pack(f">I{len(palette)}s", len(palette), palette)
-ts("Palette.")
+    palette = struct.pack(f">H{len(palette)}s", len(remap)-1, palette)
+    palette = zlib.compress(palette, level = 9)
+    palette = struct.pack(f">I{len(palette)}s", len(palette), palette)
+    ts("Palette.")
 
-annotation = atlas.annotation
-annotation = numpy.flip(atlas.annotation, (0, 1, 2))
-annotation = numpy.swapaxes(annotation, 0, 1)
-byteannotation = len(remap) < 256
-cahi = bytearray()
-calo = bytearray()
-comphi = zlib.compressobj(level = compression)
-complo = zlib.compressobj(level = compression)
-for z in range(zdim):
-    prg = int(50 * z / zdim)
-    print("[", "*" * prg, " " * (50 - prg), "] ", z, "/", zdim, sep = "", end = " \r")
-    for line in annotation[z]:
-        lihi = bytearray()
-        lilo = bytearray()
-        for v in line:
-            s = remap[v]
-            lihi.append(s >> 8)
-            lilo.append(s & 255)
-        cahi += comphi.compress(lihi)
-        calo += complo.compress(lilo)
-cahi += comphi.flush()
-calo += complo.flush()
-print("[", "*" * 50, "] ", zdim, "/", zdim, sep = "")
-ts("Annotation.")
+    annotation = atlas.annotation
+    annotation = numpy.flip(atlas.annotation, (0, 1, 2))
+    annotation = numpy.swapaxes(annotation, 0, 1)
+    byteannotation = len(remap) < 256
+    ts("byte" if byteannotation else "word")
+    cahi = bytearray()
+    calo = bytearray()
+    comphi = zlib.compressobj(level = compression)
+    complo = zlib.compressobj(level = compression)
+    for z in range(zdim):
+        prg = int(50 * z / zdim)
+        print("[", "*" * prg, " " * (50 - prg), "] ", z, "/", zdim, sep = "", end = " \r")
+        for line in annotation[z]:
+            lihi = bytearray()
+            lilo = bytearray()
+            for v in line:
+                s = remap[v]
+                lihi.append(s >> 8)
+                lilo.append(s & 255)
+            cahi += comphi.compress(lihi)
+            calo += complo.compress(lilo)
+    cahi += comphi.flush()
+    calo += complo.flush()
+    print("[", "*" * 50, "] ", zdim, "/", zdim, sep = "")
+    ts("Annotation.")
 
-ts(str(len(cahi)))
-ts(str(len(calo)))
+    ts(str(len(cahi)))
+    ts(str(len(calo)))
+
+    return (palette, byteannotation, cahi, calo)
+
+(palette, byteannotation, cahi, calo) = processannotations()
 
 print("Building template image")
-template = atlas.template
-minval = template.min()
-maxval = template.max()
-print(f"Range: {minval} - {maxval}")
-template = (template - minval) * 65535.0 / (maxval - minval)
 
-template = template.astype(numpy.uint16)
-template = numpy.flip(template, (0,1,2))
-template = numpy.swapaxes(template, 0, 1)
+def processtemplate(extra = None):
+    template = atlas.template if not extra else atlas.additional_references[extra]
+    minval = template.min()
+    maxval = template.max()
+    print(f"Range: {minval} - {maxval}")
+    template = (template - minval) * 65535.0 / (maxval - minval)
 
-thi = (template >> 8).astype(numpy.uint8).tobytes()
-tlo = template.astype(numpy.uint8).tobytes()
+    template = template.astype(numpy.uint16)
+    template = numpy.flip(template, (0,1,2))
+    template = numpy.swapaxes(template, 0, 1)
 
-ts("Compressing template image")
-cthi = zlib.compress(thi, level = compression)
-ctlo = zlib.compress(tlo, level = compression)
-ts("Done.")
+    thi = (template >> 8).astype(numpy.uint8).tobytes()
+    tlo = template.astype(numpy.uint8).tobytes()
+
+    ts(f"Compressing {extra if extra else "template image"}")
+    cthi = zlib.compress(thi, level = compression)
+    ctlo = zlib.compress(tlo, level = compression)
+    ts(f"{extra if extra else "Template"}.")
+    return (minval, maxval, cthi, ctlo)
+
+(minval, maxval, cthi, ctlo) = processtemplate()
 
 extras = []
 if "skipextras" not in sys.argv:
     for extra in atlas.additional_references:
         print(f"Building {extra}")
-        etemplate = atlas.additional_references[extra]
-        eminval = etemplate.min()
-        emaxval = etemplate.max()
-        print(f"Range: {eminval} - {emaxval}")
-        etemplate = (etemplate - eminval) * 65535.0 / (emaxval - eminval)
-
-        etemplate = etemplate.astype(numpy.uint16)
-        etemplate = numpy.flip(etemplate, (0,1,2))
-        etemplate = numpy.swapaxes(etemplate, 0, 1)
-
-        ehi = (etemplate >> 8).astype(numpy.uint8).tobytes()
-        elo = etemplate.astype(numpy.uint8).tobytes()
-
-        ts(f"Compressing {extra}")
-        cehi = zlib.compress(ehi, level = compression)
-        celo = zlib.compress(elo, level = compression)
+        (eminval, emaxval, cehi, celo) = processtemplate(extra)
         extras.append({"name": extra, "min": eminval, "max": emaxval, "hi": cehi, "lo": celo})
-        ts("Done.")
 
 filename = atlas.atlas_name + ".cutlas"
 print("Writing " + filename)
