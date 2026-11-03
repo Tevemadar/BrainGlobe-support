@@ -22,7 +22,100 @@ if xdim * ydim * zdim > 0x7FFFFFF0:
     print("Atlas can't be packed into cutlas.")
     sys.exit()
 
-print("Building annotations")
+def main():
+    print("Building annotations")
+
+    (palette, byteannotation, cahi, calo) = processannotations()
+
+    print("Building template image")
+
+    (minval, maxval, cthi, ctlo) = processtemplate()
+
+    extras = []
+    if "skipextras" not in sys.argv:
+        for extra in atlas.additional_references:
+            print(f"Building {extra}")
+            (eminval, emaxval, cehi, celo) = processtemplate(extra)
+            extras.append({"name": extra, "min": eminval, "max": emaxval, "hi": cehi, "lo": celo})
+
+    filename = atlas.atlas_name + ".cutlas"
+    print("Writing " + filename)
+    with open(filename, "wb") as f:
+        f.write(b"v0")
+
+        name = atlas.atlas_name
+        name = name.encode("utf-8")
+        name = struct.pack(f">H{len(name)}s", len(name), name)
+        f.write(name)
+
+        citation = re.sub(r"(https://\S*)", r'<a href="\g<1>">\g<1></a>', atlas.metadata["citation"])
+
+        license = f'''<b>{atlas.atlas_name.replace("_", " ").capitalize()} (v{atlas.metadata["version"]})</b>
+        <br>
+        <br><b>Species:</b> {atlas.metadata["species"]}
+        <br><b>Link:</b> <a href="{atlas.metadata["atlas_link"]}">{atlas.metadata["atlas_link"]}</a>
+        <br><b>Citation:</b> {citation}
+        <br>
+        <br>Generated from <a href="https://brainglobe.info/">BrainGlobe</a> package.
+        '''
+        license = license.encode("utf-8")
+        license = struct.pack(f">H{len(license)}s", len(license), license)
+        license = zlib.compress(license, level = 9, wbits = -15)
+        license = struct.pack(f">I{len(license)}s", len(license), license)
+        f.write(license)
+
+        f.write(struct.pack(">HHH", xdim, ydim, zdim))
+
+        f.write(struct.pack("B", 2 + len(extras)))
+
+        name = "Template"
+        name = name.encode("utf-8")
+        name = struct.pack(f">H{len(name)}s", len(name), name)
+        head = struct.pack(f">B{len(name)}sBdd", 2, name, 0, minval, maxval)
+        f.write(head)
+
+        name = "Segmentation"
+        name = name.encode("utf-8")
+        name = struct.pack(f">H{len(name)}s", len(name), name)
+        head = struct.pack(f">B{len(name)}sB", 3 if byteannotation else 4, name, 2)
+        f.write(head)
+        f.write(palette)
+
+        for i in range(len(extras)):
+            extra = extras[i]
+            name = extra["name"]
+            name = name.encode("utf-8")
+            name = struct.pack(f">H{len(name)}s", len(name), name)
+            head = struct.pack(f">B{len(name)}sBdd", 2, name, 4 + 2 * i - (1 if byteannotation else 0), extra["min"], extra["max"])
+            f.write(head)
+
+        f.write(struct.pack("B", 0))
+
+        f.write(struct.pack("B", 4 + 2 * len(extras) - (1 if byteannotation else 0)))
+
+        f.write(struct.pack(">I", len(cthi)))
+        f.write(cthi)
+        f.write(struct.pack(">I", len(ctlo)))
+        f.write(ctlo)
+
+        if not byteannotation:
+            f.write(struct.pack(">I", len(cahi)))
+            f.write(cahi)
+        f.write(struct.pack(">I", len(calo)))
+        f.write(calo)
+
+        for extra in extras:
+            f.write(struct.pack(">I", len(extra["hi"])))
+            f.write(extra["hi"])
+            f.write(struct.pack(">I", len(extra["lo"])))
+            f.write(extra["lo"])
+
+    if len(extras) > 0:
+        print(f"\n>>>> INFO <<<<\n{len(extras)} additional templates were processed: {", ".join(list(atlas.additional_references.keys()))}")
+        print("If this cutlas file makes QuickNII running out of memory, please add the command line parameter skipextras, like")
+        print(f"{" ".join(sys.argv)} skipextras")
+
+    print("All done (", int(time.time() - start), "s)", sep = "")
 
 def processannotations():
     # support for incomplete structure lists
@@ -115,10 +208,6 @@ def processannotations():
 
     return (palette, byteannotation, cahi, calo)
 
-(palette, byteannotation, cahi, calo) = processannotations()
-
-print("Building template image")
-
 def processtemplate(extra = None):
     template = atlas.template if not extra else atlas.additional_references[extra]
     minval = template.min()
@@ -139,90 +228,4 @@ def processtemplate(extra = None):
     ts(f"{extra if extra else "Template"}.")
     return (minval, maxval, cthi, ctlo)
 
-(minval, maxval, cthi, ctlo) = processtemplate()
-
-extras = []
-if "skipextras" not in sys.argv:
-    for extra in atlas.additional_references:
-        print(f"Building {extra}")
-        (eminval, emaxval, cehi, celo) = processtemplate(extra)
-        extras.append({"name": extra, "min": eminval, "max": emaxval, "hi": cehi, "lo": celo})
-
-filename = atlas.atlas_name + ".cutlas"
-print("Writing " + filename)
-with open(filename, "wb") as f:
-    f.write(b"v0")
-
-    name = atlas.atlas_name
-    name = name.encode("utf-8")
-    name = struct.pack(f">H{len(name)}s", len(name), name)
-    f.write(name)
-
-    citation = re.sub(r"(https://\S*)", r'<a href="\g<1>">\g<1></a>', atlas.metadata["citation"])
-
-    license = f'''<b>{atlas.atlas_name.replace("_", " ").capitalize()} (v{atlas.metadata["version"]})</b>
-    <br>
-    <br><b>Species:</b> {atlas.metadata["species"]}
-    <br><b>Link:</b> <a href="{atlas.metadata["atlas_link"]}">{atlas.metadata["atlas_link"]}</a>
-    <br><b>Citation:</b> {citation}
-    <br>
-    <br>Generated from <a href="https://brainglobe.info/">BrainGlobe</a> package.
-    '''
-    license = license.encode("utf-8")
-    license = struct.pack(f">H{len(license)}s", len(license), license)
-    license = zlib.compress(license, level = 9, wbits = -15)
-    license = struct.pack(f">I{len(license)}s", len(license), license)
-    f.write(license)
-
-    f.write(struct.pack(">HHH", xdim, ydim, zdim))
-
-    f.write(struct.pack("B", 2 + len(extras)))
-
-    name = "Template"
-    name = name.encode("utf-8")
-    name = struct.pack(f">H{len(name)}s", len(name), name)
-    head = struct.pack(f">B{len(name)}sBdd", 2, name, 0, minval, maxval)
-    f.write(head)
-
-    name = "Segmentation"
-    name = name.encode("utf-8")
-    name = struct.pack(f">H{len(name)}s", len(name), name)
-    head = struct.pack(f">B{len(name)}sB", 3 if byteannotation else 4, name, 2)
-    f.write(head)
-    f.write(palette)
-
-    for i in range(len(extras)):
-        extra = extras[i]
-        name = extra["name"]
-        name = name.encode("utf-8")
-        name = struct.pack(f">H{len(name)}s", len(name), name)
-        head = struct.pack(f">B{len(name)}sBdd", 2, name, 4 + 2 * i - (1 if byteannotation else 0), extra["min"], extra["max"])
-        f.write(head)
-
-    f.write(struct.pack("B", 0))
-
-    f.write(struct.pack("B", 4 + 2 * len(extras) - (1 if byteannotation else 0)))
-
-    f.write(struct.pack(">I", len(cthi)))
-    f.write(cthi)
-    f.write(struct.pack(">I", len(ctlo)))
-    f.write(ctlo)
-
-    if not byteannotation:
-        f.write(struct.pack(">I", len(cahi)))
-        f.write(cahi)
-    f.write(struct.pack(">I", len(calo)))
-    f.write(calo)
-
-    for extra in extras:
-        f.write(struct.pack(">I", len(extra["hi"])))
-        f.write(extra["hi"])
-        f.write(struct.pack(">I", len(extra["lo"])))
-        f.write(extra["lo"])
-
-if len(extras) > 0:
-    print(f"\n>>>> INFO <<<<\n{len(extras)} additional templates were processed: {", ".join(list(atlas.additional_references.keys()))}")
-    print("If this cutlas file makes QuickNII running out of memory, please add the command line parameter skipextras, like")
-    print(f"{" ".join(sys.argv)} skipextras")
-
-print("All done (", int(time.time() - start), "s)", sep = "")
+main()
