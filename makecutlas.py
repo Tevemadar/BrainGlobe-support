@@ -80,7 +80,7 @@ def processannotations():
     annotation = numpy.flip(atlas.annotation, (0, 1, 2))
     annotation = numpy.swapaxes(annotation, 0, 1)
     byteannotation = len(remap) < 256
-    ts("byte" if byteannotation else "word")
+    ts(str(len(remap)) + ", " + ("byte" if byteannotation else "word"))
     cahi = bytearray()
     calo = bytearray()
     comphi = zlib.compressobj(level = compression)
@@ -88,15 +88,23 @@ def processannotations():
     for z in range(zdim):
         prg = int(50 * z / zdim)
         print("[", "*" * prg, " " * (50 - prg), "] ", z, "/", zdim, sep = "", end = " \r")
-        for line in annotation[z]:
-            lihi = bytearray()
-            lilo = bytearray()
-            for v in line:
-                s = remap[v]
-                lihi.append(s >> 8)
-                lilo.append(s & 255)
-            cahi += comphi.compress(lihi)
-            calo += complo.compress(lilo)
+        if byteannotation:
+            for line in annotation[z]:
+                lilo = bytearray()
+                for v in line:
+                    s = remap[v]
+                    lilo.append(s)
+                calo += complo.compress(lilo)
+        else:
+            for line in annotation[z]:
+                lihi = bytearray()
+                lilo = bytearray()
+                for v in line:
+                    s = remap[v]
+                    lihi.append(s >> 8)
+                    lilo.append(s & 255)
+                cahi += comphi.compress(lihi)
+                calo += complo.compress(lilo)
     cahi += comphi.flush()
     calo += complo.flush()
     print("[", "*" * 50, "] ", zdim, "/", zdim, sep = "")
