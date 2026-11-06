@@ -6,7 +6,7 @@ def ts(msg):
     if "debug" in sys.argv:
         print(str(time.time() - start), __name__, msg)
 
-import brainglobe_atlasapi, numpy, struct, sys, zlib, random, re
+import brainglobe_atlasapi, numpy, struct, sys, zlib, random, re, urllib.request, lzma, io, zipfile
 ts("Imports.")
 
 compression = 0 if "nocompress" in sys.argv else 9
@@ -109,6 +109,26 @@ def main():
             f.write(extra["hi"])
             f.write(struct.pack(">I", len(extra["lo"])))
             f.write(extra["lo"])
+
+    print("Checking QuickNII availability")
+    try:
+        with urllib.request.urlopen("https://data-proxy.ebrains.eu/api/v1/buckets/quint-atlas-binaries/QuickNIIBase.zip.xz") as f:
+            data = f.read()
+
+        ts("Decompress")
+        data = lzma.decompress(data)
+
+        print("Packing QuickNII")
+        ts("Pack")
+        with zipfile.ZipFile("QuickNII-" + sys.argv[1] + ".zip", mode = "w", compression = zipfile.ZIP_DEFLATED, compresslevel = 9) as zw:
+            with zipfile.ZipFile(io.BytesIO(data)) as zr:
+                for zi in zr.filelist:
+                    zw.writestr(zi.filename, zr.read(zi))
+            ts("Store")
+            zw.writestr("pack.txt", filename, compress_type = zipfile.ZIP_STORED)
+            zw.write(filename, compress_type = zipfile.ZIP_STORED)
+    except:
+        print("Cutlas file is created only.")
 
     if len(extras) > 0:
         print(f"\n>>>> INFO <<<<\n{len(extras)} additional templates were processed: {", ".join(list(atlas.additional_references.keys()))}")
