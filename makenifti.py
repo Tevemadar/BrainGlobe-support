@@ -1,4 +1,4 @@
-import brainglobe_atlasapi, numpy, nibabel, sys, zipfile
+import brainglobe_atlasapi, numpy, nibabel, sys, zipfile, urllib.request, lzma, io
 
 print("Loading atlas")
 atlas = brainglobe_atlasapi.bg_atlas.BrainGlobeAtlas(sys.argv[1])
@@ -46,5 +46,22 @@ with open(atlas.atlas_name + ".txt", "w") as f:
 
 print("Creating package")
 with zipfile.ZipFile(atlas.atlas_name + ".zip", "w") as zf:
-    zf.write(atlas.atlas_name + ".nii.gz", arcname = atlas.atlas_name + ".cutlas/labels.nii.gz")
     zf.write(atlas.atlas_name + ".txt", arcname = atlas.atlas_name + ".cutlas/labels.txt")
+    zf.write(atlas.atlas_name + ".nii.gz", arcname = atlas.atlas_name + ".cutlas/labels.nii.gz", compress_type = zipfile.ZIP_STORED)
+
+print("Checking VisuAlign availability")
+try:
+    with urllib.request.urlopen("https://data-proxy.ebrains.eu/api/v1/buckets/quint-atlas-binaries/VisuAlignBase.zip.xz") as f:
+        data = f.read()
+
+    data = lzma.decompress(data)
+
+    print("Packing VisuAlign")
+    with zipfile.ZipFile("VisuAlign-" + sys.argv[1] + ".zip", mode = "w", compression = zipfile.ZIP_DEFLATED, compresslevel = 9) as zw:
+        with zipfile.ZipFile(io.BytesIO(data)) as zr:
+            for zi in zr.filelist:
+                zw.writestr(zi.filename, zr.read(zi))
+        zw.write(atlas.atlas_name + ".txt", arcname = atlas.atlas_name + ".cutlas/labels.txt")
+        zw.write(atlas.atlas_name + ".nii.gz", arcname = atlas.atlas_name + ".cutlas/labels.nii.gz", compress_type = zipfile.ZIP_STORED)
+except:
+    print("Data package is created only.")
