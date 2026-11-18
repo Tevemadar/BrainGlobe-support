@@ -25,7 +25,7 @@ Creation of the two software packages is subject to availability of their base p
 
 Optional command line parameters:
 
-- `nocompress` - apply 0-level ("STORE") compression. This parameter exists to save time when experimenting with new atlases, conversion is significantly faster this way). After an atlas turns out to be usable with QuickNII, it's advisable to re-run conversion without this parameter
+- `nocompress` - apply 0-level ("STORE") compression. This parameter exists to save time when experimenting with new atlases, conversion is significantly faster this way. After an atlas turns out to be usable with QuickNII, it's advisable to re-run conversion without this parameter
 - `skipextras` - do not pack additional references. Try using this parameter if QuickNII reports running out of memory at startup (and additional reference volumes exist at all)
 - `nomp` - if the converter itself fails because of running out of memory, this switch may help
 - `debug` - extra log messages about progress.
