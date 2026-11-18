@@ -4,7 +4,7 @@ Python converters for using atlases from https://brainglobe.info with NeSys util
 
 ## QUINT converter - `mkquint.py`
 
-This converter tries to make all the data files (cutlas, NIfTI, label), accompanied by complete QuickNII and VisuAlign packages (this part is for Windows/Linux only).
+This is the preferred converter, it tries to make all the data files (cutlas, NIfTI, label), accompanied by complete QuickNII and VisuAlign packages (this part is for Windows/Linux only).
 
 Prerequisites are BrainGlobe Atlas API, NiBabel, and tqdm:  
 `pip install --upgrade brainglobe-atlasapi nibabel tqdm`
